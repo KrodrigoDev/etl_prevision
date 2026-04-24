@@ -1,3 +1,4 @@
+import logging
 import sys
 from pathlib import Path
 
@@ -8,7 +9,30 @@ ROOT_PATH = Path(r"C:\Users\kaua.rodrigo\PycharmProjects\etl_prevision")
 if str(ROOT_PATH) not in sys.path:
     sys.path.append(str(ROOT_PATH))
 
-from pathlib import Path
+
+# Garantir UTF-8 no console
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
+# Caminho do log
+LOG_PATH = Path(
+    r"C:\Users\kaua.rodrigo\PycharmProjects\etl_prevision\files\logs\etl.log"
+)
+
+# Garante que a pasta exista
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+# Configuração do logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_PATH, mode="a", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 import pandas as pd
 
@@ -39,18 +63,18 @@ OUTPUT_PATH = Path(r'C:\Users\kaua.rodrigo\PycharmProjects\etl_prevision\files\o
 def _para_cada_projeto(projetos: pd.DataFrame, funcao, descricao: str) -> pd.DataFrame:
     """Itera sobre todos os projetos, chama a função e agrega os resultados."""
     lista = []
-    print(f"\nBuscando {descricao}...")
+    logger.info(f"\nBuscando {descricao}...")
     for _, p in projetos.iterrows():
-        print(f"  → {p['nome_projeto']} (id={p['id_projeto']})")
+        logger.info(f"{p['nome_projeto']} (id={p['id_projeto']})")
         try:
             resultado = funcao(p["id_projeto"])
             if resultado is not None and not resultado.empty:
                 lista.append(resultado)
         except Exception as e:
-            print(f"     Erro: {e}")
+            logger.info(f"     Erro: {e}")
 
     tabela = pd.concat(lista, ignore_index=True) if lista else pd.DataFrame()
-    print(f"  {len(tabela)} registros encontrados.")
+    logger.info(f"  {len(tabela)} registros encontrados.")
     return tabela
 
 
@@ -58,7 +82,7 @@ def _salvar(nome: str, tabela: pd.DataFrame, output_path: Path) -> None:
     """Salva a tabela como CSV separado por ponto e vírgula."""
     caminho = output_path / f"{nome}.csv"
     tabela.to_csv(caminho, sep=";", index=False)
-    print(f"  ✔ {nome}.csv → {caminho}")
+    logger.info(f"  {nome}.csv {caminho}")
 
 
 # ──────────────────────────────────────────────
@@ -70,9 +94,9 @@ if __name__ == "__main__":
     OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 
     # ── 1. Projetos ────────────────────────────────────────────────────────
-    print("Buscando projetos...")
+    logger.info("Buscando projetos...")
     tabela_projetos = buscar_projetos()
-    print(f"  {len(tabela_projetos)} projetos encontrados.")
+    logger.info(f"  {len(tabela_projetos)} projetos encontrados.")
 
     # ── 2. Cronograma ──────────────────────────────────────────────────────
     tabela_atividades = _para_cada_projeto(tabela_projetos, buscar_atividades, "atividades do cronograma")
@@ -92,13 +116,13 @@ if __name__ == "__main__":
     tabela_orcamentos = _para_cada_projeto(tabela_projetos, buscar_relatorios_orcamento, "relatórios de orçamento")
 
     # ── 5. Restrições (Kanban) — não depende de projeto ───────────────────
-    print("\nBuscando restrições (Kanban)...")
+    logger.info("\nBuscando restrições (Kanban)...")
     try:
         tabela_kanban_tarefas, tabela_kanban_checklists = buscar_kanban()
-        print(f"  {len(tabela_kanban_tarefas)} tarefas encontradas.")
-        print(f"  {len(tabela_kanban_checklists)} itens de checklist encontrados.")
+        logger.info(f"  {len(tabela_kanban_tarefas)} tarefas encontradas.")
+        logger.info(f"  {len(tabela_kanban_checklists)} itens de checklist encontrados.")
     except Exception as e:
-        print(f"  Erro: {e}")
+        logger.info(f"  Erro: {e}")
         tabela_kanban_tarefas = pd.DataFrame()
         tabela_kanban_checklists = pd.DataFrame()
 
@@ -110,7 +134,7 @@ if __name__ == "__main__":
                                                     "evolução por pavimento")
 
     # ── Salvar e exibir resumo ─────────────────────────────────────────────
-    print("\n─── Tabelas disponíveis para o Power BI ───")
+    logger.info("\n─── Tabelas disponíveis para o Power BI ───")
     tabelas = [
         # Projetos
         ("tabela_projetos", tabela_projetos),
@@ -138,7 +162,7 @@ if __name__ == "__main__":
 
     for nome, tabela in tabelas:
         if tabela.empty:
-            print(f"  {nome:<30} → vazia")
+            logger.info(f"  {nome:<30}  vazia")
             continue
-        print(f"  {nome:<30} → {tabela.shape[0]} linhas, {tabela.shape[1]} colunas")
+        logger.info(f"  {nome:<30}  {tabela.shape[0]} linhas, {tabela.shape[1]} colunas")
         _salvar(nome, tabela, OUTPUT_PATH)

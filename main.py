@@ -47,7 +47,7 @@ from stages.extract.restricoes import buscar_kanban
 
 from stages.extract.dashboard import (buscar_dashboard_completo,
                                       buscar_evolucao_pacotes,
-                                      buscar_evolucao_pavimentos)
+                                      buscar_evolucao_pavimentos, explodir_dashboard)
 
 # ──────────────────────────────────────────────
 # Configuração de saída
@@ -128,6 +128,9 @@ if __name__ == "__main__":
 
     # ── 6. Dashboard — todos os projetos ──────────────────────────────────
     tabela_dashboard = _para_cada_projeto(tabela_projetos, buscar_dashboard_completo, "dashboard completo")
+
+    explodir_dashboard(tabela_dashboard)
+
     tabela_evolucao_pacotes = _para_cada_projeto(tabela_projetos, buscar_evolucao_pacotes,
                                                  "evolução por pacote de trabalho")
     tabela_evolucao_pavimentos = _para_cada_projeto(tabela_projetos, buscar_evolucao_pavimentos,
